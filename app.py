@@ -53,15 +53,15 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name):
         [model.inputs], [base_model.get_layer(last_conv_layer_name).output, model.output]
     )
 
-    # 3. GradientTape를 사용하여 그래디언트를 계산합니다.
+  # 3. GradientTape를 사용하여 그래디언트를 계산합니다.
     with tf.GradientTape() as tape:
         # 모델을 통해 예측을 수행하여 마지막 합성곱 레이어의 출력과 최종 예측값을 얻습니다.
-        last_conv_layer_output, preds = grad_model(img_array)
+        # training=False를 명시하여 모델을 추론 모드로 실행합니다.
+        last_conv_layer_output, preds = grad_model(img_array, training=False) # <--- 이 부분을 수정하세요!
         
         # 이진 분류 모델의 출력은 shape=(1,1) 이므로, 첫 번째(그리고 유일한) 값을 사용합니다.
-        # 이전 코드의 pred_index를 사용하는 대신, 출력값 자체를 명시적으로 사용합니다.
         class_output = preds[0]
-
+        
     # 4. 마지막 합성곱 레이어의 출력에 대한 클래스 출력의 그래디언트를 계산합니다.
     grads = tape.gradient(class_output, last_conv_layer_output)
 
