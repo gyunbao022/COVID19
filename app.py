@@ -41,9 +41,9 @@ print("================== 모델 구조 출력 종료 ==================")
 # 1. Grad-CAM 함수 구현
 # ====================================================================
 
-def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None):
+def make_gradcam_heatmap(img_array, model, last_conv_layer_name):
     """
-    Grad-CAM 히트맵을 생성하는 함수 (수정된 버전)
+    Grad-CAM 히트맵을 생성하는 함수 (KeyError 수정한 최종 버전)
     """
     # 1. 전체 모델에서 'densenet121'이라는 중간 레이어(베이스 모델)를 먼저 가져옵니다.
     base_model = model.get_layer('densenet121')
@@ -53,28 +53,31 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None
         [model.inputs], [base_model.get_layer(last_conv_layer_name).output, model.output]
     )
 
-    # GradientTape를 사용하여 마지막 conv layer의 출력에 대한 top prediction의 그래디언트 계산
+    # 3. GradientTape를 사용하여 그래디언트를 계산합니다.
     with tf.GradientTape() as tape:
+        # 모델을 통해 예측을 수행하여 마지막 합성곱 레이어의 출력과 최종 예측값을 얻습니다.
         last_conv_layer_output, preds = grad_model(img_array)
-        if pred_index is None:
-            # 이진 분류이므로 항상 클래스 0에 대한 그래디언트를 계산합니다.
-            pred_index = 0
-        class_channel = preds[:, pred_index]
+        
+        # 이진 분류 모델의 출력은 shape=(1,1) 이므로, 첫 번째(그리고 유일한) 값을 사용합니다.
+        # 이전 코드의 pred_index를 사용하는 대신, 출력값 자체를 명시적으로 사용합니다.
+        class_output = preds[0]
 
-    # 그래디언트 계산
-    grads = tape.gradient(class_channel, last_conv_layer_output)
+    # 4. 마지막 합성곱 레이어의 출력에 대한 클래스 출력의 그래디언트를 계산합니다.
+    grads = tape.gradient(class_output, last_conv_layer_output)
 
-    # 채널별 평균 그래디언트 계산
+    # 5. 그래디언트의 채널별 평균을 계산합니다 (Global Average Pooling).
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
-    # 마지막 conv layer의 출력에 평균 그래디언트를 곱하여 히트맵 생성
+    # 6. 마지막 합성곱 레이어의 출력에 채널별 중요도(pooled_grads)를 곱하여 히트맵을 만듭니다.
     last_conv_layer_output = last_conv_layer_output[0]
     heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
 
-    # ReLU 활성화 함수처럼 음수는 0으로 만들고, 0과 1 사이로 정규화
-    heatmap = tf.maximum(heatmap, 0) / tf.math.reduce_max(heatmap)
+    # 7. 히트맵을 0과 1 사이로 정규화합니다. (시각화를 위해)
+    heatmap = tf.maximum(heatmap, 0) / (tf.math.reduce_max(heatmap) + 1e-8) # 0으로 나누는 것을 방지
     return heatmap.numpy()
+
+
 def superimpose_gradcam(img, heatmap, alpha=0.4):
     """
     원본 이미지 위에 Grad-CAM 히트맵을 겹쳐서 보여주는 함수
