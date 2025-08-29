@@ -43,18 +43,22 @@ print("================== 모델 구조 출력 종료 ==================")
 
 def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None):
     """
-    Grad-CAM 히트맵을 생성하는 함수
+    Grad-CAM 히트맵을 생성하는 함수 (수정된 버전)
     """
-    # 마지막 conv layer와 모델의 출력을 얻는 모델을 새로 구성
+    # 1. 전체 모델에서 'densenet121'이라는 중간 레이어(베이스 모델)를 먼저 가져옵니다.
+    base_model = model.get_layer('densenet121')
+
+    # 2. 베이스 모델 내부에서 last_conv_layer_name을 찾아 그 출력과, 전체 모델의 최종 출력을 얻는 새 모델을 구성합니다.
     grad_model = tf.keras.models.Model(
-        [model.inputs], [model.get_layer(last_conv_layer_name).output, model.output]
+        [model.inputs], [base_model.get_layer(last_conv_layer_name).output, model.output]
     )
 
     # GradientTape를 사용하여 마지막 conv layer의 출력에 대한 top prediction의 그래디언트 계산
     with tf.GradientTape() as tape:
         last_conv_layer_output, preds = grad_model(img_array)
         if pred_index is None:
-            pred_index = tf.argmax(preds[0])
+            # 이진 분류이므로 항상 클래스 0에 대한 그래디언트를 계산합니다.
+            pred_index = 0
         class_channel = preds[:, pred_index]
 
     # 그래디언트 계산
@@ -71,7 +75,6 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None
     # ReLU 활성화 함수처럼 음수는 0으로 만들고, 0과 1 사이로 정규화
     heatmap = tf.maximum(heatmap, 0) / tf.math.reduce_max(heatmap)
     return heatmap.numpy()
-
 def superimpose_gradcam(img, heatmap, alpha=0.4):
     """
     원본 이미지 위에 Grad-CAM 히트맵을 겹쳐서 보여주는 함수
