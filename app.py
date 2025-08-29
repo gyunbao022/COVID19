@@ -93,16 +93,25 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name):
 
 def superimpose_gradcam(img, heatmap, alpha=0.4):
     """
-    원본 이미지 위에 Grad-CAM 히트맵을 겹쳐서 보여주는 함수
+    원본 이미지 위에 Grad-CAM 히트맵을 겹쳐서 보여주는 함수 (크기 조절 기능 추가)
     """
     if heatmap is None:
         return img # 히트맵 생성 실패 시 원본 이미지 반환
+
+    # 1. 히트맵을 원본 이미지와 같은 크기로 확대합니다.
+    heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
         
+    # 2. 히트맵을 0-255 범위의 8비트 이미지로 변환
     heatmap = np.uint8(255 * heatmap)
+    
+    # 3. 'jet' 컬러맵 적용
     jet = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    jet = cv2.cvtColor(jet, cv2.COLOR_BGR2RGB)
+    jet = cv2.cvtColor(jet, cv2.COLOR_BGR2RGB) # OpenCV는 BGR, PIL은 RGB
+
+    # 4. 원본 이미지와 히트맵을 겹침
     superimposed_img = jet * alpha + img * (1 - alpha)
     superimposed_img = np.clip(superimposed_img, 0, 255).astype(np.uint8)
+    
     return superimposed_img
 
 # ====================================================================
