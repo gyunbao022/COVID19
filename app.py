@@ -12,7 +12,7 @@ import cv2 # OpenCV
 # ====================================================================
 
 # 모델 경로와 Grad-CAM에 사용할 마지막 합성곱 레이어 이름 설정
-MODEL_PATH = "checkpoints/best_densenet121.keras"
+MODEL_PATH = "best_densenet121.keras"
 # 마지막 conv layer 이름은 model.summary()를 통해 확인해야 합니다.
 # DenseNet121의 경우 보통 'relu' 또는 'conv5_block16_2_conv' 입니다.
 LAST_CONV_LAYER_NAME = "relu"
